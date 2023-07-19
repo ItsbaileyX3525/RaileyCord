@@ -2,7 +2,13 @@ from socket import *
 from threading import *
 import sys
 
-nickname = input("Enter a username: ")
+while True:
+    nickname = input("Enter a username: ")
+    if ' ' in nickname:
+        print("Username can't have spaces")
+        continue
+    else:
+        break
 
 client = socket(AF_INET, SOCK_STREAM)
 try:
