@@ -14,45 +14,61 @@ clients = []
 nicknames = []
 clientList = {}
 
-def kick(arg, reason=None):
-    if arg == '':
+blacklist = []
+with open('blacklist.txt', 'r') as file:
+    for line in file:
+        ip = line.strip()
+        blacklist.append(ip)
+
+def kick(arg=None, reason=None):
+    if arg == ' ' or arg == None:
         addToLog("Missing username.")
     else:
         try:
             value = clientList[arg]
-            value.close()
             index = clients.index(value)
             nickname = nicknames[index]
-            broadcast(f"{nickname} has left the chat".encode("ascii"))
-            addToLog(f"{nickname} has disconnected")
-            nicknames.remove(nickname)
-            if reason != None and reason != ' ':
+            value.close()
+            addToLog(f"Kicked {nickname} successfully.")
+            if reason != None or reason != ' ':
                 broadcast(f"Admin kicked {arg} for {reason}".encode('ascii'))
             else:
                 broadcast(f"Admin kicked {arg}".encode('ascii'))
         except KeyError:
             addToLog("User not found.")
+            
+def ban(arg=None):
+    if arg == ' ' or arg == None:
+        addToLog("Missing username")
+    else:
+        try:
+            value = clientList[arg]
+            value.close()
+            addToLog("Kicked user but ban not fully added.")
+        except KeyError:
+            addToLog("User not found.")
 
-def help(arg):
+def help(arg=None):
     if arg == 'kick':
         addToLog("/kick [username] (case sensitive.)")
         addToLog("Kicks client/player from server")
     elif arg == 'list':
         addToLog("/list all, username")
         addToLog("Lists players and their info")
-    elif arg == '':
+    elif arg == '' or arg == None:
         addToLog("kick, list, stop")
     else:
         pass
 
-def stop(arg):
-    if not arg or arg == '':
+
+def stop(arg=None):
+    if arg == None or arg == ' ':
         for client in clients:
             client.close()
         server.close()
         sys.exit()
 
-def displayClients(arg):
+def displayClients(arg=None):
     if arg == 'all':
         new_window = tk.Toplevel(app)
         new_window.title("List Items")
@@ -71,6 +87,8 @@ def displayClients(arg):
         update_button.pack()
 
         update_list()
+    elif arg == ' ' or arg == None:
+        addToLog("all, username")
 
 def callFunction():
     input_text = entry.get()
@@ -89,7 +107,7 @@ def callFunction():
             else:
                 addToLog(f"Function '{function_name}' not found.")
         except TypeError:
-            addToLog("Please add an argument.")
+            functions_dict[function_name]
     else:
         addToLog(input_text)
 
@@ -100,8 +118,11 @@ def addToLog(text):
     log_text.config(state=tk.DISABLED)
 
 def broadcast(message):
-    for c in clients:
-        c.send(message)
+    try:
+        for c in clients:
+            c.send(message)
+    except OSError:
+        pass
         
 def handle(client):
     while True:
@@ -122,7 +143,12 @@ def recieve():
     while True:
         try:
             client, address = server.accept()
-            
+            if address[0] in blacklist:
+                client.send(f"True".encode('ascii'))
+                addToLog(F"banned address of {address} tried to join.")
+                client.close()
+            client.send(f"False".encode('ascii'))
+            client.send(f"{nicknames}".encode('ascii'))
             client.send("NICK".encode('ascii'))
             nickname = client.recv(512).decode('ascii')
             nicknames.append(nickname)
@@ -146,7 +172,7 @@ functions_dict = {
     "list": displayClients,
     "help": help,
     "stop": stop,
-    
+    "ban": ban,
 }
 
 import tkinter as tk
