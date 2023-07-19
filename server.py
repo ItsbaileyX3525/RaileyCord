@@ -1,6 +1,7 @@
 from threading import *
 from socket import *
 import re
+import sys
 
 host = '127.0.0.1'
 port = 6969
@@ -13,32 +14,43 @@ clients = []
 nicknames = []
 clientList = {}
 
-def kick(arg):
+def kick(arg, reason=None):
     if arg == '':
         addToLog("Missing username.")
     else:
         try:
             value = clientList[arg]
-            index = clients.index(value)
-            clients.remove(value)
             value.close()
+            index = clients.index(value)
             nickname = nicknames[index]
             broadcast(f"{nickname} has left the chat".encode("ascii"))
             addToLog(f"{nickname} has disconnected")
             nicknames.remove(nickname)
-            broadcast(f"Admin kicked {arg}".encode('ascii'))
+            if reason != None and reason != ' ':
+                broadcast(f"Admin kicked {arg} for {reason}".encode('ascii'))
+            else:
+                broadcast(f"Admin kicked {arg}".encode('ascii'))
         except KeyError:
             addToLog("User not found.")
 
 def help(arg):
     if arg == 'kick':
         addToLog("/kick [username] (case sensitive.)")
+        addToLog("Kicks client/player from server")
     elif arg == 'list':
-        addToLog("/list all")
+        addToLog("/list all, username")
+        addToLog("Lists players and their info")
     elif arg == '':
-        addToLog("kick, list")
+        addToLog("kick, list, stop")
     else:
         pass
+
+def stop(arg):
+    if not arg or arg == '':
+        for client in clients:
+            client.close()
+        server.close()
+        sys.exit()
 
 def displayClients(arg):
     if arg == 'all':
@@ -69,11 +81,15 @@ def callFunction():
 
     if match:
         function_name = match.group(1)
-        arguments = match.group(2)
-        if function_name in functions_dict and callable(functions_dict[function_name]):
-            functions_dict[function_name](arguments)
-        else:
-            addToLog(f"Function '{function_name}' not found or not callable.")
+        arguments = match.group(2).split()
+
+        try:
+            if function_name in functions_dict and callable(functions_dict[function_name]):
+                functions_dict[function_name](*arguments)
+            else:
+                addToLog(f"Function '{function_name}' not found.")
+        except TypeError:
+            addToLog("Please add an argument.")
     else:
         addToLog(input_text)
 
@@ -104,22 +120,24 @@ def handle(client):
         
 def recieve():
     while True:
-        client, address = server.accept()
-        
-        client.send("NICK".encode('ascii'))
-        nickname = client.recv(512).decode('ascii')
-        nicknames.append(nickname)
-        clients.append(client)
-        clientList.update({nickname:client})
-        
-        broadcast(f"{nickname} has joined the chat.".encode('ascii'))
-        addToLog(f"connetion from {address} with name of {nickname}")
-        client.send("Connection established!".encode('ascii'))
-        
+        try:
+            client, address = server.accept()
+            
+            client.send("NICK".encode('ascii'))
+            nickname = client.recv(512).decode('ascii')
+            nicknames.append(nickname)
+            clients.append(client)
+            clientList.update({nickname:client})
+            
+            broadcast(f"{nickname} has joined the chat.".encode('ascii'))
+            addToLog(f"connetion from {address} with name of {nickname}")
+            client.send("Connection established!".encode('ascii'))
+        except:
+            sys.exit()
         thread = Thread(target=handle, args=(client,))
         thread.start()
 
-print("Server is live! Enjoy hosting.")
+
 recieve_thread = Thread(target=recieve)
 recieve_thread.start()
 
@@ -127,6 +145,8 @@ functions_dict = {
     "kick": kick,
     "list": displayClients,
     "help": help,
+    "stop": stop,
+    
 }
 
 import tkinter as tk
@@ -150,5 +170,5 @@ app.grid_rowconfigure(0, weight=1)
 app.grid_columnconfigure(0, weight=1)
 
 connected_users = []
-
+addToLog("Server started.")
 app.mainloop()
