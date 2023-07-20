@@ -7,14 +7,11 @@ host = '127.0.0.1'
 port = 6969
 
 server=None
-server = socket(AF_INET, SOCK_STREAM)
-server.bind((host, port))
-server.listen(5)
 def startServer():
     global server
     server = socket(AF_INET, SOCK_STREAM)
     server.bind((host, port))
-    server.listen(5)
+    server.listen()
     recieve_thread = Thread(target=recieve)
     recieve_thread.start()
 
@@ -202,6 +199,7 @@ def recieve():
                 thread = Thread(target=handle, args=(client,))
                 thread.start()  
         except:
+            print("Exception happened")
             sys.exit()
     sys.exit()
 
@@ -214,7 +212,7 @@ functions_dict = {
     "ban": ban,
     "update": update,
 }
-
+startServer()
 import tkinter as tk
 
 app = tk.Tk()
