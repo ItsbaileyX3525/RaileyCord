@@ -6,15 +6,24 @@ import sys
 host = '127.0.0.1'
 port = 6969
 
+server=None
 server = socket(AF_INET, SOCK_STREAM)
 server.bind((host, port))
-server.listen()
+server.listen(5)
+def startServer():
+    global server
+    server = socket(AF_INET, SOCK_STREAM)
+    server.bind((host, port))
+    server.listen(5)
+    recieve_thread = Thread(target=recieve)
+    recieve_thread.start()
 
 clients = []
 nicknames = []
 clientList = {}
-
+IPList = {}
 blacklist = []
+
 with open('blacklist.txt', 'r') as file:
     for line in file:
         ip = line.strip()
@@ -30,12 +39,12 @@ def kick(arg=None, reason=None):
             nickname = nicknames[index]
             value.close()
             addToLog(f"Kicked {nickname} successfully.")
-            if reason != None or reason != ' ':
+            if reason != None:
                 broadcast(f"Admin kicked {arg} for {reason}".encode('ascii'))
             else:
                 broadcast(f"Admin kicked {arg}".encode('ascii'))
-        except KeyError:
-            addToLog("User not found.")
+        except KeyError as e:
+            addToLog(f"User {e} not found.")
             
 def ban(arg=None):
     if arg == ' ' or arg == None:
@@ -43,10 +52,16 @@ def ban(arg=None):
     else:
         try:
             value = clientList[arg]
+            ip = IPList[arg]
+            index = clients.index(value)
+            nickname = nicknames[index]
             value.close()
-            addToLog("Kicked user but ban not fully added.")
-        except KeyError:
-            addToLog("User not found.")
+            with open('blacklist.txt', 'w') as file:
+                file.write(ip)
+            addToLog("Kicked banned.")
+            broadcast(f"User {nickname} has been banned!".encode("ascii"))
+        except KeyError as e:
+            addToLog(f"User {e} not found.")
 
 def help(arg=None):
     if arg == 'kick':
@@ -56,17 +71,40 @@ def help(arg=None):
         addToLog("/list all, username")
         addToLog("Lists players and their info")
     elif arg == '' or arg == None:
-        addToLog("kick, list, stop")
+        addToLog("kick, ban, list, stop, start, update")
     else:
         pass
 
-
 def stop(arg=None):
+    global server
     if arg == None or arg == ' ':
         for client in clients:
             client.close()
         server.close()
-        sys.exit()
+        server = None
+        app.title("Server - standing by")
+        addToLog("Server stopped.")
+    else:
+        addToLog("Arguments not required. Please remove them.")
+
+def start(arg=None):
+    if arg == None or arg == ' ':
+        startServer()
+        app.title("Server - running")
+    else:
+        addToLog("Arguments not required. Please remove them.")
+
+def update(arg=None):
+    global blacklist
+    if arg == None or arg == ' ':
+        addToLog("blacklist")
+    elif arg == 'blacklist':
+        blacklist = []
+        with open('blacklist.txt', 'r') as file:
+            for line in file:
+                ip = line.strip()
+                blacklist.append(ip)
+    
 
 def displayClients(arg=None):
     if arg == 'all':
@@ -125,7 +163,7 @@ def broadcast(message):
         pass
         
 def handle(client):
-    while True:
+    while server != None:
         try:
             message = client.recv(512)
             broadcast(message)
@@ -138,41 +176,43 @@ def handle(client):
             addToLog(f"{nickname} has disconnected")
             nicknames.remove(nickname)
             break
+    sys.exit()
         
 def recieve():
-    while True:
+    while server != None:
         try:
             client, address = server.accept()
             if address[0] in blacklist:
                 client.send(f"True".encode('ascii'))
                 addToLog(F"banned address of {address} tried to join.")
                 client.close()
-            client.send(f"False".encode('ascii'))
-            client.send(f"{nicknames}".encode('ascii'))
-            client.send("NICK".encode('ascii'))
-            nickname = client.recv(512).decode('ascii')
-            nicknames.append(nickname)
-            clients.append(client)
-            clientList.update({nickname:client})
+            else:
+                client.send(f"False".encode('ascii'))
+                client.send(f"{nicknames}".encode('ascii'))
+                client.send("NICK".encode('ascii'))
+                nickname = client.recv(512).decode('ascii')
+                nicknames.append(nickname)
+                clients.append(client)
+                clientList.update({nickname:client})
+                IPList.update({nickname:address[0]})
             
-            broadcast(f"{nickname} has joined the chat.".encode('ascii'))
-            addToLog(f"connetion from {address} with name of {nickname}")
-            client.send("Connection established!".encode('ascii'))
+                broadcast(f"{nickname} has joined the chat.".encode('ascii'))
+                addToLog(f"connetion from {address} with name of {nickname}")
+                client.send("Connection established!".encode('ascii'))
+                thread = Thread(target=handle, args=(client,))
+                thread.start()  
         except:
             sys.exit()
-        thread = Thread(target=handle, args=(client,))
-        thread.start()
-
-
-recieve_thread = Thread(target=recieve)
-recieve_thread.start()
+    sys.exit()
 
 functions_dict = {
     "kick": kick,
     "list": displayClients,
     "help": help,
     "stop": stop,
+    "start": start,
     "ban": ban,
+    "update": update,
 }
 
 import tkinter as tk

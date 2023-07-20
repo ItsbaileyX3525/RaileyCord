@@ -9,7 +9,7 @@ except:
     print("There was a problem establishing a connection to the server.")
     sys.exit()
 
-isBanned= client.recv(2048).decode('ascii')
+isBanned = client.recv(2048).decode('ascii')
 takenNames = client.recv(2048).decode('ascii')
 
 if isBanned == 'False':
