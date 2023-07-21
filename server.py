@@ -88,6 +88,7 @@ def start(arg=None):
     if arg == None or arg == ' ':
         startServer()
         app.title("Server - running")
+        addToLog("Server started.")
     else:
         addToLog("Arguments not required. Please remove them.")
 
@@ -101,7 +102,11 @@ def update(arg=None):
             for line in file:
                 ip = line.strip()
                 blacklist.append(ip)
-    
+
+def say(arg=None):
+    broadcast(f"Admin: {arg}".encode('ascii'))
+    print(arg)
+    addToLog(f"Said {arg} to {len(clients)} clients.")
 
 def displayClients(arg=None):
     if arg == 'all':
@@ -127,21 +132,30 @@ def displayClients(arg=None):
 
 def callFunction():
     input_text = entry.get()
-    entry.insert(0, "")
-    pattern = r"/(\w+)\s*(.*)"
+    entry.delete(0, "end") 
+    pattern = r"/(\w+)\s*(\"[^\"]*\"|\S*)"
 
     match = re.match(pattern, input_text)
 
     if match:
         function_name = match.group(1)
-        arguments = match.group(2).split()
+        raw_argument = match.group(2)
 
+        if raw_argument.startswith('"') and raw_argument.endswith('"'):
+            argument = raw_argument[1:-1]
+        else:
+            argument = raw_argument
+
+        if argument == '' or argument == ' ':
+            argument=None
         try:
             if function_name in functions_dict and callable(functions_dict[function_name]):
-                functions_dict[function_name](*arguments)
+                addToLog(input_text)
+                functions_dict[function_name](argument)
             else:
-                addToLog(f"Function '{function_name}' not found.")
+                addToLog(f"Command '{function_name}' not found.")
         except TypeError:
+            addToLog(input_text)
             functions_dict[function_name]
     else:
         addToLog(input_text)
@@ -199,7 +213,7 @@ def recieve():
                 thread = Thread(target=handle, args=(client,))
                 thread.start()  
         except:
-            print("Exception happened")
+            print("Exception happened, probably ok")
             sys.exit()
     sys.exit()
 
@@ -211,6 +225,7 @@ functions_dict = {
     "start": start,
     "ban": ban,
     "update": update,
+    "say": say,
 }
 startServer()
 import tkinter as tk
