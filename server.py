@@ -72,6 +72,11 @@ def help(arg=None):
     else:
         pass
 
+def clear(arg=None):
+    log_text.config(state=tk.NORMAL)
+    log_text.delete("1.0", tk.END)
+    log_text.config(state=tk.DISABLED)
+
 def stop(arg=None):
     global server
     if arg == None or arg == ' ':
@@ -105,7 +110,6 @@ def update(arg=None):
 
 def say(arg=None):
     broadcast(f"Admin: {arg}".encode('ascii'))
-    print(arg)
     addToLog(f"Said {arg} to {len(clients)} clients.")
 
 def displayClients(arg=None):
@@ -226,6 +230,7 @@ functions_dict = {
     "ban": ban,
     "update": update,
     "say": say,
+    "clear": clear,
 }
 startServer()
 import tkinter as tk
@@ -238,6 +243,10 @@ app.geometry("500x200")
 
 log_text = tk.Text(app, wrap=tk.WORD, state=tk.DISABLED)
 log_text.grid(row=0, column=0, columnspan=2, sticky="nsew")
+
+scrollbar = tk.Scrollbar(app, command=log_text.yview)
+scrollbar.grid(row=0, column=2, sticky="ns")
+log_text.config(yscrollcommand=scrollbar.set)
 
 entry = tk.Entry(app)
 entry.grid(row=1, column=0, sticky="ew")
